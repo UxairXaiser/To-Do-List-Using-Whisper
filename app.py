@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from datetime import date
 from dotenv import load_dotenv  # Import dotenv to load environment variables
 import google.generativeai as genai
@@ -8,6 +9,7 @@ import whisper  # Import Whisper for speech recognition
 import sounddevice as sd
 import numpy as np
 import scipy.io.wavfile as wav
+from google.api_core.exceptions import ResourceExhausted  # Import the exception
 
 # Load environment variables from .env file
 load_dotenv()
@@ -49,22 +51,29 @@ def audio_to_text(filename):
     result = whisper_model.transcribe(filename)  # Transcribe audio to text
     return result["text"]
 
-# Updated function for Gemini API to generate the to-do list
+# Updated function for Gemini API to generate the to-do list with error handling
 def generate_todo_list(transcribed_text):
     prompt = f"Summarize the following text and extract the to-do list:\n\n{transcribed_text}\n\nTo-do list:"
     
-    # Use Gemini API to generate the todo list
-    response = genai.GenerativeModel('gemini-1.5-flash').generate_content(prompt)
-    
-    # Extract response from Gemini
-    if response and response.candidates:
-        todo_list = response.candidates[0].content.parts[0].text.strip()
-        if todo_list:
-            return todo_list
-        else:
-            return "The generated to-do list is empty. Please provide more detailed input."
-    else:
-        return "Failed to generate a to-do list. Please try again."
+    for attempt in range(5):  # Retry up to 5 times
+        try:
+            response = genai.GenerativeModel('gemini-1.5-flash').generate_content(prompt)
+            if response and response.candidates:
+                todo_list = response.candidates[0].content.parts[0].text.strip()
+                if todo_list:
+                    return todo_list
+                else:
+                    return "The generated to-do list is empty. Please provide more detailed input."
+            else:
+                return "Failed to generate a to-do list. Please try again."
+        except ResourceExhausted as e:
+            if attempt < 4:  # If not the last attempt
+                time.sleep(2 ** attempt)  # Exponential backoff
+                continue  # Retry
+            else:
+                return "Error: Resource exhausted. Please try again later."
+        except Exception as e:
+            return f"An error occurred: {str(e)}"
 
 # Function to clear the previous tasks from the file
 def clear_previous_tasks(filename="todo_list.txt"):
