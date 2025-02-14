@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import date
+from dotenv import load_dotenv  # Import dotenv to load environment variables
 import google.generativeai as genai
 import streamlit as st
 import whisper  # Import Whisper for speech recognition
@@ -8,8 +9,15 @@ import sounddevice as sd
 import numpy as np
 import scipy.io.wavfile as wav
 
-# Set your Gemini API key directly in the code
-gemini_api_key = "AIzaSyDXatL4OFN-KVTVPpEU4-axrjp_o98jvkw"  # Replace with your actual Gemini API key
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the API key from the environment variable
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+# Check if the API key is set
+if gemini_api_key is None:
+    st.error("Error: GEMINI_API_KEY is not set. Please check your .env file.")
 
 # Configure the API key for Gemini
 genai.configure(api_key=gemini_api_key)
